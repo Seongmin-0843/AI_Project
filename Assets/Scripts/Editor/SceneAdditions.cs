@@ -132,6 +132,17 @@ public static partial class DeskSceneBuilder
         }
         LayoutTalk(guide.talk);
         TalkHint(guide.talk);
+        // M7 규정 심사: 서류 화면 [닫기] 옆 [규정 안내문] 버튼
+        if (flow.view.rulesButton == null)
+        {
+            var rules = MakeButton(flow.view.panel.transform, "RulesButton", "규정 안내문", 30);
+            Place((RectTransform)rules.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(-485f, 40f), new Vector2(240f, 60f)); // [닫기] 왼쪽
+            UnityEventTools.AddPersistentListener(rules.onClick, flow.view.ToggleRules);
+            flow.view.rulesButton = rules;
+            EditorUtility.SetDirty(flow.view);
+            Debug.Log("[추가] 서류 화면 [규정 안내문] 버튼");
+        }
+
         ApplyArt(flow); // 서류·단말기·결과 화면 그림
 
         // 도장 연출: 서류 더미에서 종이가 나와 도장이 찍히고 서류함으로 날아감. 종이 자리는 StampMotion의 Paper Offset으로 조정

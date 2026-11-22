@@ -94,6 +94,20 @@ public static class ScoringCheck
         var num = T(200, "Reject", E("NumberMismatch", "Contract"));
         Expect("번호 오류: 계약서 번호 + 조회 번호", Scoring.Calculate(Tx(num, Stamp.Reject, "Contract.Number+Lookup.Number"), Stamp.Reject), 200);
 
+        // M7 규정 위반 (3점)
+        var consent = T(350, "Reject", E("ConsentMissing", "Application"));
+        foreach (var key in new[] { "Application.Attachment+Rule.3", "Lookup.Age+Rule.3", "Application.Attachment" })
+            Expect($"동의서 누락: {key}", Scoring.Calculate(Tx(consent, Stamp.Reject, key), Stamp.Reject), 350);
+        Expect("동의서 누락에 규정 4 (틀린 사유)", Scoring.Calculate(Tx(consent, Stamp.Reject, "Lookup.Age+Rule.4"), Stamp.Reject), 0);
+        Expect("동의서 누락에 저장 시기 한 칸 (틀린 사유)", Scoring.Calculate(Tx(consent, Stamp.Reject, "Lookup.Age"), Stamp.Reject), 0);
+        Expect("서류가 일치해도 규정 위반 승인은 0", Scoring.Calculate(Tx(consent, Stamp.Approve), Stamp.Approve), 0);
+        var under = T(250, "Reject", E("UnderTen", "Lookup"));
+        Expect("10세 미만: 규정 4 + 조회 저장 시기", Scoring.Calculate(Tx(under, Stamp.Reject, "Lookup.Age+Rule.4"), Stamp.Reject), 250);
+        Expect("10세 미만: 저장 시기 한 칸 (틀린 사유)", Scoring.Calculate(Tx(under, Stamp.Reject, "Lookup.Age"), Stamp.Reject), 0);
+        var ruleMixed = T(350, "Reject", E("NameMismatch", "Contract"), E("ConsentMissing", "Application"));
+        Expect("기획서 예시: 동의서만 260", Scoring.Calculate(Tx(ruleMixed, Stamp.Reject, "Application.Attachment+Rule.3"), Stamp.Reject), 260);
+        Expect("기획서 예시: 이름만 90", Scoring.Calculate(Tx(ruleMixed, Stamp.Reject, name), Stamp.Reject), 90);
+
         // 반올림
         Expect("반올림 87.5 → 90", Scoring.RoundTo10(87.5), 90);
         Expect("반올림 262.5 → 260", Scoring.RoundTo10(262.5), 260);

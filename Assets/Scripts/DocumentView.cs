@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -18,8 +19,15 @@ public class DocumentView : MonoBehaviour
     public Text debugLabel;
     [Tooltip("계약서에 찍히는 도장 자국 (승인도장자국 / 반려도장자국)")]
     public RawImage stampImage;
+    [Tooltip("[규정 안내문] 버튼 (M7). 규정 심사가 있는 스테이지 3부터 보인다")]
+    public Button rulesButton;
     [Header("글자 크기")]
     public int valueFontSize = 26, labelFontSize = 22, headingFontSize = 29, noteFontSize = 22, sealFontSize = 19;
+
+    // 지금까지 누적된 규정 문장 (DeskFlow가 하루를 시작할 때 넣음)
+    public List<string> Rules { get; set; } = new List<string>();
+
+    RectTransform rulesSheet, consentSheet; // 계약서 / 신청서 위에 겹쳐 펴는 종이
 
     void Awake() => panel.SetActive(false);
 
@@ -42,6 +50,8 @@ public class DocumentView : MonoBehaviour
         ShowApplication(tx);
         ShowContract(tx);
         if (lookupFields != null) ShowLookup(tx);
+        ShowRules();
+        ShowConsent(tx);
 
         if (stampImage != null)
         {
@@ -75,6 +85,7 @@ public class DocumentView : MonoBehaviour
         if (t.Lookup) Row(c, doc, null, "거래 유형", "기억 판매", 934f, 986f);
         string consent = t.Consent == "Y" ? "첨부" : t.Consent == "N" ? "없음" : "해당 없음";
         Row(c, doc, "Application.Attachment", "첨부 서류", $"보호자 동의서: {consent}", t.Lookup ? 986f : 934f, t.Lookup ? 1038f : 986f);
+        if (t.Consent == "Y") MakeButton(c, "보기", 780f, 990f, 915f, 1034f, () => consentSheet.gameObject.SetActive(true));
 
         Review(c, t.Lookup);
         SignRow(c, doc, "Application.Sign", t.AppSign ? tx.AppName : "");
@@ -130,6 +141,92 @@ public class DocumentView : MonoBehaviour
         if (restoreButton != null) restoreButton.SetActive(rec.IsRestore && tx.LookedUp && rec.Template.Registered && !rec.RestoreDone);
     }
 
+    // ── 규정 안내문·보호자 동의서 (M7): 같은 종이를 계약서·신청서 위에 겹쳐 편다 ──
+
+    // [규정 안내문] 버튼: 계약서 자리에 규정을 폈다 접는다. 고른 항목은 그대로라 규정 → 서류 항목을 이어서 고를 수 있다
+    public void ToggleRules() => SetRules(!rulesSheet.gameObject.activeSelf);
+
+    void SetRules(bool on)
+    {
+        rulesSheet.gameObject.SetActive(on);
+        rulesButton.GetComponentInChildren<Text>().text = on ? "계약서 보기" : "규정 안내문";
+    }
+
+    void ShowRules()
+    {
+        if (rulesButton == null) return; // 메뉴 NUMB > Add Missing Objects 실행 전
+        rulesButton.gameObject.SetActive(Rules.Count >= 3);
+        var c = Sheet(ref rulesSheet, contractFields, "거래 규정 안내문");
+        SetRules(false);
+        const string doc = "거래";
+        HeadRow(c, doc, 0, null, "시행 기관", "기억 추출소");
+        HeadRow(c, doc, 1, null, "책임자", "오틸리아");
+        HeadRow(c, doc, 2, null, "적용 규정", $"규정 1~{Rules.Count}");
+        // 규정 1·2는 서류끼리 비교하는 규정이라 글만, 규정 위반의 근거가 되는 3부터 고를 수 있다
+        float[] tops = { 540f, 685f, 852f, 973f }, bottoms = { 685f, 830f, 973f, 1094f };
+        for (int i = 0; i < Rules.Count && i < tops.Length; i++)
+            Row(c, doc, i < 2 ? null : $"Rule.{i + 1}", $"규정 {i + 1}", Rules[i], tops[i], bottoms[i], noteFontSize);
+        Heading(c, "심사 방법", 1152f);
+        Note(c, "규정을 어긴 거래는 규정과 해당 항목을\n함께 골라 기록하고 반려하세요.", 1190f);
+        SignRow(c, doc, null, "오틸리아");
+        Seal(c, "규정\n시행");
+    }
+
+    // 동의서 내용은 신청서와 늘 같다 (비교할 항목 없음, 있는지만 확인하는 서류)
+    void ShowConsent(Transaction tx)
+    {
+        var c = Sheet(ref consentSheet, applicationFields, "보호자 동의서");
+        if (tx.Template.Consent != "Y") return;
+        const string doc = "동의서";
+        HeadRow(c, doc, 0, null, "거래자", tx.AppName);
+        HeadRow(c, doc, 1, null, "기억 번호", tx.AppNumber);
+        HeadRow(c, doc, 2, null, "저장 시기", $"{tx.Template.Age}세 때");
+        Heading(c, "기억 정보", 583f);
+        Row(c, doc, null, "기억 설명", tx.Template.AppDesc, 629f, 749f);
+        Heading(c, "동의 내용", 890f);
+        Note(c, "보호자로서 위 기억의 거래 내용을 확인했으며,\n거래에 동의합니다.", 930f);
+        MakeButton(c, "신청서 보기", 365f, 1170f, 660f, 1250f, () => consentSheet.gameObject.SetActive(false));
+        string[] given = { "영호", "미숙", "정희", "상훈" };
+        SignRow(c, doc, null, (tx.AppName.StartsWith("남궁") ? "남궁" : tx.AppName.Substring(0, 1)) + given[int.Parse(tx.Number.Substring(2)) % given.Length]);
+        Seal(c, "동의\n완료");
+    }
+
+    // fields가 놓인 종이를 똑같이 덮는 종이 (처음 한 번 만들고, 부를 때마다 비우고 접어 둠)
+    RectTransform Sheet(ref RectTransform sheet, RectTransform fields, string title)
+    {
+        if (sheet == null)
+        {
+            var paper = fields.parent.GetComponent<RawImage>();
+            var copy = new GameObject(title, typeof(RectTransform)).AddComponent<RawImage>();
+            copy.texture = paper.texture;
+            copy.uvRect = paper.uvRect;
+            sheet = copy.rectTransform;
+            sheet.SetParent(paper.transform, false);
+            sheet.anchorMin = Vector2.zero;
+            sheet.anchorMax = Vector2.one;
+            sheet.offsetMin = sheet.offsetMax = Vector2.zero;
+        }
+        sheet.gameObject.SetActive(false);
+        Clear(sheet);
+        var t = MakeText(sheet, title, 30, TextAnchor.MiddleCenter);
+        t.fontStyle = FontStyle.Bold;
+        At(t.rectTransform, 300f, 100f, 725f, 178f);
+        return sheet;
+    }
+
+    // 종이 위의 작은 버튼
+    void MakeButton(RectTransform c, string label, float x0, float y0, float x1, float y1, UnityEngine.Events.UnityAction action)
+    {
+        var go = new GameObject(label, typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(c, false);
+        At((RectTransform)go.transform, x0, y0, x1, y1);
+        go.GetComponent<Image>().color = new Color(0.2f, 0.2f, 0.21f);
+        go.GetComponent<Button>().onClick.AddListener(action);
+        var t = MakeText(go.transform, label, noteFontSize, TextAnchor.MiddleCenter);
+        t.color = new Color(0.94f, 0.91f, 0.86f);
+        Anchor(t.rectTransform, 0f, 1f, 0f, 0f);
+    }
+
     // 조회 기록 칸이 없는 거래(스테이지 1)는 빈자리 없이 신청서·계약서를 오른쪽, 발견 목록을 왼쪽으로 반씩 당겨 가운데로 모은다
     RectTransform[] cols;
     float[] baseX;
@@ -163,10 +260,10 @@ public class DocumentView : MonoBehaviour
         MakeRow(c, doc, id, label, value, 330f + 48f * i, 378f + 48f * i, Right);
 
     // 칸을 직접 그리는 줄
-    void Row(RectTransform c, string doc, string id, string label, string value, float y0, float y1)
+    void Row(RectTransform c, string doc, string id, string label, string value, float y0, float y1, int size = 0)
     {
         MakeFill(c, LabelFill, Left, y0, Split, y1);
-        MakeRow(c, doc, id, label, value, y0, y1, Right);
+        MakeRow(c, doc, id, label, value, y0, y1, Right, size);
         MakeLine(c, Left, Right, y0);
         MakeLine(c, Left, Right, y1);
         MakeFill(c, Line, Split - 1f, y0, Split + 1f, y1);
@@ -176,7 +273,7 @@ public class DocumentView : MonoBehaviour
         MakeRow(c, doc, id, "서명", name.Length > 0 ? $"<i>{name}</i>" : "", 1350f, 1440f, 745f);
 
     // 항목 하나 = 클릭할 수 있는 줄. 오브젝트 이름 = 항목 ID (id가 없으면 비교 대상이 아닌 글)
-    void MakeRow(RectTransform c, string doc, string id, string label, string value, float y0, float y1, float right)
+    void MakeRow(RectTransform c, string doc, string id, string label, string value, float y0, float y1, float right, int size = 0)
     {
         var go = new GameObject(id ?? "Info", typeof(RectTransform), typeof(Image));
         go.transform.SetParent(c, false);
@@ -198,12 +295,12 @@ public class DocumentView : MonoBehaviour
         l.verticalOverflow = VerticalWrapMode.Truncate;
         l.fontStyle = FontStyle.Bold;
         Anchor(l.rectTransform, 0f, split, 6f, 1f);
-        var v = MakeText(go.transform, value, valueFontSize, TextAnchor.MiddleLeft);
+        var v = MakeText(go.transform, value, size > 0 ? size : valueFontSize, TextAnchor.MiddleLeft);
         v.color = new Color(0.05f, 0.05f, 0.06f); // 글꼴이 가늘어 더 진하게
         Anchor(v.rectTransform, split, 1f, 14f, 4f);
         // 한 줄을 넘치면 가운데 띄어쓰기에서 나눠, 끝 글자만 다음 줄로 떨어지지 않게 (두 줄까지)
         float width = (right - Split) / Crop.width * c.rect.width - 18f;
-        if (v.preferredWidth <= width) return;
+        if (size > 0 || v.preferredWidth <= width) return; // 작은 글씨(규정 문장)는 자동 줄바꿈에 맡김
         int space = -1;
         for (int i = 0; i < value.Length; i++)
             if (value[i] == ' ' && (space < 0 || Mathf.Abs(i - value.Length / 2) < Mathf.Abs(space - value.Length / 2))) space = i;

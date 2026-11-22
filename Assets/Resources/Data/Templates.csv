@@ -25,3 +25,15 @@ S2_05B,2,5,Lookup,250,아버지와 처음 간 야구장의 함성,아버지와 �
 S2_05C,2,5,Lookup,250,눈 오는 밤 기차 안에서 나눠 먹은 귤,눈 오는 밤 기차 안에서 나눠 먹은 귤,Y,Y,-,Y,여행,,21,-,AgeMismatch@Lookup,Reject,,12
 S2_06A,2,6,Restore,300,"초등학교 1학년, 짝꿍과 보낸 첫 한 해","초등학교 1학년, 짝꿍과 보낸 첫 한 해",Y,Y,-,Y,학교,,8,MS03,,Approve
 S2_06B,2,6,Restore,300,"스무 살, 처음 가족과 떠난 해외여행","스무 살, 처음 가족과 떠난 해외여행",Y,Y,-,Y,여행,,20,MS04,RestoreMismatch@Restore,Reject
+S3_01A,3,1,Basic,200,입사 첫날 엘리베이터에서 만난 동기,입사 첫날 엘리베이터에서 만난 동기,Y,Y,-,Y,일상,,25,-,,Approve
+S3_01B,3,1,Basic,200,소극장 맨 앞줄에서 본 첫 연극,소극장 맨 앞줄에서 본 첫 연극,Y,N,-,Y,일상,,23,-,SignMissing@Contract,Reject
+S3_02A,3,2,Rule,350,교복을 입고 나간 마지막 체육대회,교복을 입고 나간 마지막 체육대회,Y,Y,N,Y,학교,,16,-,ConsentMissing@Application,Reject
+S3_02B,3,2,Rule,350,친구와 자전거로 강변을 끝까지 달린 날,친구와 자전거로 강변을 끝까지 달린 날,Y,Y,Y,Y,우정,,17,-,,Approve
+S3_03A,3,3,Lookup,250,비 오는 제주에서 혼자 걸은 올레길,비 오는 제주에서 혼자 걸은 올레길,Y,Y,-,Y,여행,일상,28,-,NameMismatch@Contract|KindMismatch@Lookup,Reject
+S3_03B,3,3,Lookup,250,동생 결혼식에서 부른 서툰 축가,동생 결혼식에서 부른 서툰 축가,Y,Y,-,Y,가족,,34,-,AgeMismatch@Lookup,Reject,,27
+S3_04A,3,4,Restore,300,중학교 합창 대회에서 지휘를 맡은 하루,중학교 합창 대회에서 지휘를 맡은 하루,Y,Y,Y,Y,학교,,14,MS06,,Approve
+S3_04B,3,4,Restore,300,"대학 입학 첫날, 선배들과 어울린 하루","대학 입학 첫날, 선배들과 어울린 하루",Y,Y,-,Y,학교,,20,MS07,RestoreMismatch@Restore,Reject
+S3_05A,3,5,Lookup,250,첫 아르바이트를 마치고 먹은 야식,첫 아르바이트를 마치고 먹은 야식,Y,Y,N,Y,일상,,19,-,,Approve
+S3_05B,3,5,Lookup,250,옛 친구와 십 년 만에 나눈 인사,옛 친구와 십 년 만에 나눈 인사,Y,Y,-,Y,우정,,31,-,OwnerMismatch@Lookup,Reject
+S3_06A,3,6,Rule,350,할머니께 처음 손편지를 드린 명절,할머니께 처음 손편지를 드린 명절,Y,Y,N,Y,가족,,12,-,NameMismatch@Contract|ConsentMissing@Application,Reject
+S3_06B,3,6,Rule,350,수능 전날 밤 가족과 먹은 저녁,수능 전날 밤 혼자 먹은 저녁,Y,Y,N,Y,가족,,18,-,DescMismatch@Contract|ConsentMissing@Application,Reject

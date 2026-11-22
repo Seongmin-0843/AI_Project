@@ -55,8 +55,11 @@ public static class Scoring
                 return 2; // 기억 조회
             case "RestoreMismatch":
                 return 3; // 기억 복원
+            case "ConsentMissing":
+            case "UnderTen":
+                return 3; // 규정 위반
             default:
-                throw new ArgumentException($"점수가 정해지지 않은 오류 종류: {kind}"); // M7에서 규정 3점 추가
+                throw new ArgumentException($"점수가 정해지지 않은 오류 종류: {kind}");
         }
     }
 
@@ -78,6 +81,10 @@ public static class Scoring
             case "Unregistered": return new[] { "Lookup.Unregistered" };
             // 신청서·계약서 설명은 같은 문장이라 둘 다 인정, 복원된 기억 한 칸만 골라도 인정
             case "RestoreMismatch": return new[] { "Application.Desc+Restore.Result", "Contract.Desc+Restore.Result", "Restore.Result" };
+            // 규정 위반: 규정 문장 + 근거가 되는 항목. 동의서는 '없음' 칸만, 또는 '없음' 칸 + 기억 저장 시기도 인정
+            case "ConsentMissing": return new[] { "Application.Attachment+Rule.3", "Application.Age+Rule.3", "Lookup.Age+Rule.3", "Application.Age+Application.Attachment", "Application.Attachment+Lookup.Age", "Application.Attachment" };
+            // 저장 시기 한 칸만 고르면 '기억 저장 시기 불일치'와 구별되지 않으므로 규정 문장이 꼭 있어야 한다
+            case "UnderTen": return new[] { "Lookup.Age+Rule.4", "Application.Age+Rule.4" };
             default: throw new ArgumentException($"항목 조합이 정해지지 않은 오류 종류: {e.Kind}");
         }
     }
@@ -128,6 +135,8 @@ public static class Scoring
             case "AgeMismatch": return "기억 저장 시기 불일치";
             case "Unregistered": return "등록되지 않은 번호";
             case "RestoreMismatch": return "복원한 기억 내용 불일치";
+            case "ConsentMissing": return "보호자 동의서 누락";
+            case "UnderTen": return "10세 미만의 기억";
             default: return kind;
         }
     }

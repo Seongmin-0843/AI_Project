@@ -4,7 +4,7 @@ using UnityEngine;
 
 public struct TemplateError
 {
-    public string Kind; // GameData.KnownKinds 참고 (M7에서 규정 오류 추가)
+    public string Kind; // GameData.KnownKinds 참고
     public string Doc;  // Application / Contract / Lookup(조회 기록) / Restore(복원 결과)
 }
 
@@ -80,8 +80,8 @@ public static class Variation
 // Resources/Data의 CSV를 읽는다. 데이터 모순은 불러올 때 에러 로그로 알린다.
 public static class GameData
 {
-    static readonly string[] KnownKinds = { "NameMismatch", "NumberMismatch", "SignMissing", "DescMismatch", "OwnerMismatch", "KindMismatch", "AgeMismatch", "Unregistered", "RestoreMismatch" };
-    static readonly string[] LookupKinds = { "OwnerMismatch", "KindMismatch", "AgeMismatch", "Unregistered" };
+    static readonly string[] KnownKinds = { "NameMismatch", "NumberMismatch", "SignMissing", "DescMismatch", "OwnerMismatch", "KindMismatch", "AgeMismatch", "Unregistered", "RestoreMismatch", "ConsentMissing", "UnderTen" };
+    static readonly string[] LookupKinds = { "OwnerMismatch", "KindMismatch", "AgeMismatch", "Unregistered", "UnderTen" };
 
     public static List<TransactionTemplate> LoadTemplates()
     {
@@ -202,7 +202,7 @@ public static class GameData
         foreach (var e in t.Errors)
         {
             Check(System.Array.IndexOf(KnownKinds, e.Kind) >= 0, $"알 수 없는 오류 종류 {e.Kind}");
-            string fixedDoc = System.Array.IndexOf(LookupKinds, e.Kind) >= 0 ? "Lookup" : e.Kind == "RestoreMismatch" ? "Restore" : null;
+            string fixedDoc = System.Array.IndexOf(LookupKinds, e.Kind) >= 0 ? "Lookup" : e.Kind == "RestoreMismatch" ? "Restore" : e.Kind == "ConsentMissing" ? "Application" : null;
             Check(fixedDoc != null ? e.Doc == fixedDoc : e.Doc == "Application" || e.Doc == "Contract", $"오류 위치가 잘못됨 {e.Kind}@{e.Doc}");
             Check(fixedDoc == null || t.Lookup, $"{e.Kind}는 조회 대상 거래(Registered가 Y/N)에만 쓸 수 있음");
             Check(e.Kind != "RestoreMismatch" || t.Type == "Restore", "RestoreMismatch는 복원 거래에만 쓸 수 있음");
@@ -215,6 +215,10 @@ public static class GameData
         Check(t.Registered != t.Errors.Exists(e => e.Kind == "Unregistered"), "Registered N과 Unregistered가 맞지 않음");
         Check((t.RecordKind != t.MemoryKind) == t.Errors.Exists(e => e.Kind == "KindMismatch"), "RecordKind 차이와 KindMismatch가 맞지 않음");
         Check((t.RecordAge != t.Age) == t.Errors.Exists(e => e.Kind == "AgeMismatch"), "RecordAge 차이와 AgeMismatch가 맞지 않음");
+        // 규정 (기획서 5장): 19세 미만은 동의서 필요(스테이지 3부터), 10세 미만은 동의서가 있어도 불가(스테이지 4부터)
+        Check((t.Stage >= 3 && t.Age < 19 && t.Consent != "Y") == t.Errors.Exists(e => e.Kind == "ConsentMissing"), "동의서 없는 미성년자와 ConsentMissing이 맞지 않음");
+        Check((t.Stage >= 4 && t.Age < 10) == t.Errors.Exists(e => e.Kind == "UnderTen"), "10세 미만과 UnderTen이 맞지 않음");
+        Check(t.Stage < 3 || (t.Age < 19) == (t.RecordAge < 19) && (t.Age < 10) == (t.RecordAge < 10), "신청서와 조회 기록의 기억 저장 시기가 규정 나이(10·19세)의 양쪽으로 갈려 정답이 애매함");
         Check(t.Type != "Restore" || t.MemorySetId != "-", "복원 거래에 MemorySetId가 없음");
     }
 

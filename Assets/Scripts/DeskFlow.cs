@@ -109,6 +109,7 @@ public class DeskFlow : MonoBehaviour
         queue = list;
         cursor = 0;
         current = queue[0];
+        view.Rules = Enumerable.Range(1, stage).Select(i => Phrase($"Rule.{i}").Replace("{", "").Replace("}", "")).ToList();
         findings.Clear();
         Say("");
         directive.Show(DirectiveText(), button, () => Say(hint));
