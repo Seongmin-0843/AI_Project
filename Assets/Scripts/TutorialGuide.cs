@@ -20,6 +20,7 @@ public class TutorialGuide : MonoBehaviour
     [Tooltip("오틸리아 안내 창. 비어 있으면 안내 없이 진행 (메뉴 NUMB > Add Missing Objects로 추가)")]
     public OttiliaTalk talk;
     bool fromTop; // 이번 프레임 대상은 위에서 가리킴 (서류 화면 안이라도)
+    bool fromRight; // 이번 프레임 대상은 오른쪽에서 가리킴 (복원 창 [서류로 돌아가기]: 위에는 복원된 기억 줄이 있음)
 
     static readonly Color Highlight = new Color(1f, 0.85f, 0.15f);
 
@@ -76,7 +77,7 @@ public class TutorialGuide : MonoBehaviour
     void Update()
     {
         Clickable glow = null;
-        fromTop = false;
+        fromTop = fromRight = false;
         RectTransform point = null;
         string hint = null;
         var tx = flow.Current;
@@ -104,7 +105,7 @@ public class TutorialGuide : MonoBehaviour
 
         arrow.gameObject.SetActive(point != null);
         // 서류 화면의 버튼은 왼쪽에서 (아래 안내 문구와 안 겹치게), 서류 칸(신청인·계약자)·복원 창 카드·단말기 입력칸은 위에서 가리킨다
-        if (point != null) PointAt(point, fromLeft: !fromTop && !flow.restore.panel.activeSelf && !flow.terminal.panel.activeSelf);
+        if (point != null) PointAt(point, fromLeft: !fromTop && !fromRight && !flow.restore.panel.activeSelf && !flow.terminal.panel.activeSelf);
         ShowHint(hint);
         // 오틸리아가 말하는 동안은 안내 줄을 숨김 (말풍선 뒤로 비쳐 보이지 않게)
         bool talking = talk != null && talk.IsOpen;
@@ -129,7 +130,9 @@ public class TutorialGuide : MonoBehaviour
             }
             fb.text = Emphasis.Rich(hint, onDark: true);
             var rt = fb.rectTransform;
-            rt.anchoredPosition = feedbackPos + (view.panel.activeSelf ? new Vector2(0f, 90f) : Vector2.zero);
+            // 서류 화면은 [닫기] 위로 올림. 복원 창은 버튼이 더 위에 있어 원래 자리(맨 아래)가 비어 있음
+            bool lift = view.panel.activeSelf && !flow.restore.panel.activeSelf;
+            rt.anchoredPosition = feedbackPos + (lift ? new Vector2(0f, 90f) : Vector2.zero);
 
             // 배경 네모: 글자 크기에 맞춤 (글자는 아래 가운데 정렬이라 아래 가운데 기준)
             var c = new Vector3[4];
@@ -165,7 +168,7 @@ public class TutorialGuide : MonoBehaviour
         var r = flow.restore;
         if (r.panel.activeSelf)
         {
-            if (tx.RestoreDone) { point = (RectTransform)r.closeLabel.transform.parent; hint = "기억이 복원되었습니다. [서류로 돌아가기]를 누르세요."; return; }
+            if (tx.RestoreDone) { point = (RectTransform)r.closeLabel.transform.parent; fromRight = true; hint = "기억이 복원되었습니다. [서류로 돌아가기]를 누르세요."; return; }
             Talk(tx, "Restore");
             int next = 0; // 앞에서부터 맞게 고른 장수
             while (next < r.Picks.Count && r.Picks[next] == next) next++;
@@ -174,12 +177,12 @@ public class TutorialGuide : MonoBehaviour
             else { point = (RectTransform)r.confirmButton.transform; hint = "세 장을 모두 순서대로 골랐습니다. [확인]을 누르세요."; }
         }
         else if (flow.terminal.panel.activeSelf)
-        { point = (RectTransform)flow.terminal.input.transform; hint = $"기억 번호 {tx.AppNumber}의 숫자 {{{tx.AppNumber.Substring(2)}}}를 입력하고 [조회]를 누르세요."; }
+        { point = (RectTransform)flow.terminal.input.transform; hint = $"기억 번호 {tx.Number}의 숫자 {{{tx.Number.Substring(2)}}}를 입력하고 [조회]를 누르세요."; }
         else if (view.panel.activeSelf && !tx.LookedUp)
         {
             Talk(tx, "Open");
             point = closeButton;
-            hint = $"이 거래는 기억을 조회해야 합니다. 신청서의 기억 번호 {{{tx.AppNumber}}}를 확인하고 [닫기]를 누르세요.";
+            hint = $"이 거래는 기억을 조회해야 합니다. 신청서의 기억 번호 {{{tx.Number}}}를 확인하고 [닫기]를 누르세요.";
         }
         else if (view.panel.activeSelf && !tx.RestoreDone)
         {
@@ -206,7 +209,7 @@ public class TutorialGuide : MonoBehaviour
         {
             Talk(tx, "Open");
             point = closeButton;
-            hint = "신청서와 계약서의 {이름·번호·설명·서명}이 모두 같습니다. 문제가 없으니 [닫기]를 누르세요.";
+            hint = "신청서와 계약서의 {이름·설명·서명}이 모두 같습니다. 문제가 없으니 [닫기]를 누르세요.";
         }
         else if (!tx.Viewed)
         { Talk(tx, "Start"); glow = pile; hint = "빛나는 [서류 더미]를 클릭해 서류를 펼치세요."; }
@@ -253,9 +256,9 @@ public class TutorialGuide : MonoBehaviour
         float wave = (Mathf.Sin(Time.unscaledTime * 6f) + 1f) * 0.5f; // 0~1
         float gap = (10f + 22f * wave) * scale;
 
-        arrow.localRotation = Quaternion.Euler(0f, 0f, fromLeft ? 90f : 0f);
-        arrow.position = fromLeft
-            ? (corners[0] + corners[1]) * 0.5f + Vector3.left * gap
+        arrow.localRotation = Quaternion.Euler(0f, 0f, fromRight ? -90f : fromLeft ? 90f : 0f);
+        arrow.position = fromRight ? (corners[2] + corners[3]) * 0.5f + Vector3.right * gap
+            : fromLeft ? (corners[0] + corners[1]) * 0.5f + Vector3.left * gap
             : (corners[1] + corners[2]) * 0.5f + Vector3.up * gap;
         arrow.localScale = arrowScale * (1f + 0.12f * wave); // 씬에서 정한 Scale 기준으로 맥동
     }

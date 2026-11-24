@@ -73,7 +73,7 @@ public class DocumentView : MonoBehaviour
         const string doc = "신청서";
         Clear(c);
         HeadRow(c, doc, 0, "Application.Name", "신청인", tx.AppName);
-        HeadRow(c, doc, 1, "Application.Number", "기억 번호", tx.AppNumber);
+        HeadRow(c, doc, 1, null, "기억 번호", tx.Number); // 번호는 서류끼리 늘 같아 고를 항목이 아님
         if (t.Lookup) HeadRow(c, doc, 2, "Application.Age", "기억 저장 시기", $"{t.Age}세 때"); // 조회 기록과 비교할 칸 (스테이지 2부터)
         else HeadRow(c, doc, 2, null, "거래 유형", "기억 판매");
 
@@ -99,7 +99,7 @@ public class DocumentView : MonoBehaviour
         const string doc = "계약서";
         Clear(c);
         HeadRow(c, doc, 0, "Contract.Name", "계약자", tx.ConName);
-        HeadRow(c, doc, 1, "Contract.Number", "기억 번호", tx.ConNumber);
+        HeadRow(c, doc, 1, null, "기억 번호", tx.Number);
         HeadRow(c, doc, 2, null, "거래 유형", "기억 판매");
         Heading(c, "기억 정보", 583f);
         Row(c, doc, "Contract.Desc", "기억 설명", t.ConDesc, 629f, 749f);
@@ -123,7 +123,7 @@ public class DocumentView : MonoBehaviour
         Seal(c, tx.LookedUp ? "조회\n완료" : "조회\n대기");
         if (tx.LookedUp)
         {
-            HeadRow(c, doc, 0, "Lookup.Number", "기억 번호", tx.LookupNumber);
+            HeadRow(c, doc, 0, null, "기억 번호", tx.LookupNumber); // 오입력 확인용으로 보기만 함
             if (!rec.Template.Registered) HeadRow(c, doc, 1, "Lookup.Unregistered", "등록 여부", "등록되지 않은 번호");
             else
             {
@@ -179,7 +179,7 @@ public class DocumentView : MonoBehaviour
         if (tx.Template.Consent != "Y") return;
         const string doc = "동의서";
         HeadRow(c, doc, 0, null, "거래자", tx.AppName);
-        HeadRow(c, doc, 1, null, "기억 번호", tx.AppNumber);
+        HeadRow(c, doc, 1, null, "기억 번호", tx.Number);
         HeadRow(c, doc, 2, null, "저장 시기", $"{tx.Template.Age}세 때");
         Heading(c, "기억 정보", 583f);
         Row(c, doc, null, "기억 설명", tx.Template.AppDesc, 629f, 749f);

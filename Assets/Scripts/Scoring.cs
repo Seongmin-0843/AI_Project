@@ -11,7 +11,7 @@ public class Transaction
     public List<Finding> Reasons = new List<Finding>(); // 반려 사유 (반려 도장일 때만)
 
     // 값 치환 (기획서 7장): 서류에 들어갈 이름·번호와 오류용 값
-    public string Name, Similar, Number, SwappedNumber;
+    public string Name, Similar, Number; // 기억 번호는 신청서·계약서에 늘 같게 적힌다
     public bool LookedUp; // 단말기에서 조회함 → 서류 화면에 조회 기록 칸이 보임
     public string LookupNumber;     // 마지막으로 조회한 번호 (조회 기록의 '기억 번호' 칸)
     public Transaction WrongRecord; // 번호를 잘못 입력해 나온 다른 사람의 기록. 맞는 번호로 다시 조회하면 null
@@ -31,8 +31,6 @@ public class Transaction
     // 템플릿이 정한 곳에만 오류 값을 넣는다 (기획서 7장)
     public string AppName => Template.HasError("NameMismatch", "Application") ? Similar : Name;
     public string ConName => Template.HasError("NameMismatch", "Contract") ? Similar : Name;
-    public string AppNumber => Template.HasError("NumberMismatch", "Application") ? SwappedNumber : Number;
-    public string ConNumber => Template.HasError("NumberMismatch", "Contract") ? SwappedNumber : Number;
     public string Owner => Template.HasError("OwnerMismatch", "Lookup") ? Similar : Name;
 }
 
@@ -44,7 +42,6 @@ public static class Scoring
         switch (kind)
         {
             case "NameMismatch":
-            case "NumberMismatch":
             case "SignMissing":
             case "DescMismatch":
                 return 1; // 서류 대조
@@ -70,8 +67,6 @@ public static class Scoring
         {
             // 서명은 이름으로 적히므로 이름이 다르면 서명도 다르다 → 서명끼리, 이름↔서명 짝도 인정
             case "NameMismatch": return new[] { "Application.Name+Contract.Name", "Application.Sign+Contract.Sign", "Application.Name+Contract.Sign", "Application.Sign+Contract.Name" };
-            // 조회 기록에도 번호가 적히므로 서류 번호 ↔ 조회 번호 짝도 인정
-            case "NumberMismatch": return new[] { "Application.Number+Contract.Number", "Application.Number+Lookup.Number", "Contract.Number+Lookup.Number" };
             case "DescMismatch": return new[] { "Application.Desc+Contract.Desc" };
             case "SignMissing": return new[] { $"{e.Doc}.Sign" };
             // 신청인·계약자 이름은 같은 값이라 어느 쪽과 짝지어도 인정, 조회 기록 한 칸만 골라도 인정
@@ -127,7 +122,6 @@ public static class Scoring
         switch (kind)
         {
             case "NameMismatch": return "이름 불일치";
-            case "NumberMismatch": return "기억 번호 불일치";
             case "SignMissing": return "서명 누락";
             case "DescMismatch": return "기억 설명 불일치";
             case "OwnerMismatch": return "조회 소유자 불일치";

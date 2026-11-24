@@ -20,10 +20,10 @@ public static class ScoringCheck
         var normal = T(200, "Approve");
         var oneErr = T(200, "Reject", E("NameMismatch", "Contract"));
         var twoErr = T(200, "Reject", E("NameMismatch", "Contract"), E("SignMissing", "Contract"));
-        var threeErr = T(350, "Reject", E("NameMismatch", "Contract"), E("NumberMismatch", "Contract"), E("DescMismatch", "Contract"));
+        var threeErr = T(350, "Reject", E("NameMismatch", "Contract"), E("SignMissing", "Contract"), E("DescMismatch", "Contract"));
 
-        const string name = "Application.Name+Contract.Name", number = "Application.Number+Contract.Number";
-        const string sign = "Contract.Sign", wrong = "Application.Name+Contract.Number";
+        const string name = "Application.Name+Contract.Name";
+        const string sign = "Contract.Sign", wrong = "Application.Name+Contract.Desc";
 
         // 모두 맞힘
         Expect("정상 거래 승인", Scoring.Calculate(Tx(normal, Stamp.Approve), Stamp.Approve), 200);
@@ -31,7 +31,7 @@ public static class ScoringCheck
         Expect("오류 2개 모두 찾음", Scoring.Calculate(Tx(twoErr, Stamp.Reject, name, sign), Stamp.Reject), 200);
         // 일부만 찾음
         Expect("오류 2개 중 1개", Scoring.Calculate(Tx(twoErr, Stamp.Reject, sign), Stamp.Reject), 100);
-        Expect("350 거래 3개 중 2개 (233.3 → 230)", Scoring.Calculate(Tx(threeErr, Stamp.Reject, name, number), Stamp.Reject), 230);
+        Expect("350 거래 3개 중 2개 (233.3 → 230)", Scoring.Calculate(Tx(threeErr, Stamp.Reject, name, sign), Stamp.Reject), 230);
         // 틀린 사유 섞임
         Expect("맞는 사유 + 틀린 사유", Scoring.Calculate(Tx(twoErr, Stamp.Reject, name, wrong), Stamp.Reject), 0);
         // 이름이 다르면 서명(이름으로 적힘)도 다르다 → 서명 쌍만, 이름 쌍과 함께, 이름↔서명도 인정
@@ -91,8 +91,6 @@ public static class ScoringCheck
         Expect("오입력한 채 복원 거래 승인", Scoring.Calculate(Wrong(Rx(restoreOk, 0, Stamp.Approve)), Stamp.Approve), 0);
         Expect("오입력 기록을 사유로 반려", Scoring.Calculate(Wrong(Tx(owner, Stamp.Reject, "Lookup.Owner")), Stamp.Reject), 0);
         Expect("오입력했지만 서류 오류로 반려", Scoring.Calculate(Wrong(Tx(oneErr, Stamp.Reject, name)), Stamp.Reject), 200);
-        var num = T(200, "Reject", E("NumberMismatch", "Contract"));
-        Expect("번호 오류: 계약서 번호 + 조회 번호", Scoring.Calculate(Tx(num, Stamp.Reject, "Contract.Number+Lookup.Number"), Stamp.Reject), 200);
 
         // M7 규정 위반 (3점)
         var consent = T(350, "Reject", E("ConsentMissing", "Application"));
@@ -130,25 +128,15 @@ public static class ScoringCheck
         ExpectList("오입력 기록을 사유로 반려", Scoring.Missed(Wrong(Tx(owner, Stamp.Reject, "Lookup.Owner")), Stamp.Reject), "기억 번호 오입력,조회 소유자 불일치");
         ExpectList("복원 3회 실패", Scoring.Missed(Rx(restoreOk, 3, Stamp.Approve), Stamp.Approve), "기억 복원 3회 실패");
 
-        // 번호 치환: 자리바꿈 결과는 원래와 달라야 하고, 같은 숫자 구성에 이웃한 두 자리만 바뀜
+        // 번호 뽑기: 형식 M-0100~M-9999, 겹치지 않음
         var rng = new System.Random(1);
         var used = new HashSet<string>();
         for (int i = 0; i < 500; i++)
         {
             var n = Variation.RandomNumber(rng, used);
-            var s = Variation.SwapDigits(n, rng);
-            int diff = 0;
-            for (int c = 0; c < n.Length; c++) if (n[c] != s[c]) diff++;
-            var a = n.ToCharArray(); var b = s.ToCharArray();
-            System.Array.Sort(a); System.Array.Sort(b);
-            if (n.Length != 6 || !n.StartsWith("M-") || diff != 2 || new string(a) != new string(b))
-            {
-                fail++;
-                Debug.LogError($"[번호 치환 검사 실패] {n} → {s}");
-                break;
-            }
+            if (n.Length != 6 || !n.StartsWith("M-") || string.CompareOrdinal(n, "M-0100") < 0) { fail++; Debug.LogError($"[번호 검사 실패] {n}"); break; }
         }
-        if (used.Count != 500) { fail++; Debug.LogError("[번호 치환 검사 실패] 번호가 중복됨"); }
+        if (used.Count != 500) { fail++; Debug.LogError("[번호 검사 실패] 번호가 중복됨"); }
 
         // 실제 템플릿: 완벽하게 처리하면 수익 100%, 슬롯 안의 템플릿 수익이 같음, 최대 수익이 빚 이상 (기획서 3·7장)
         var templates = GameData.LoadTemplates();

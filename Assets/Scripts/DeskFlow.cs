@@ -10,6 +10,8 @@ public class DeskFlow : MonoBehaviour
     public FindingPanel findings;
     public ReasonDialog reasonDialog;
     public MessagePanel directive, result;
+    [Tooltip("도장 전 할 일이 남았을 때의 작은 팝업 (NUMB > Add Missing Objects). 비어 있으면 업무 지시문 창을 쓴다")]
+    public MessagePanel notice;
     [Tooltip("결과 화면 그림. 비어 있으면 글만 나온다 (메뉴 NUMB > Add Missing Objects로 추가)")]
     public ResultArt resultArt;
     public TrayStack approveStack, rejectStack;
@@ -49,7 +51,7 @@ public class DeskFlow : MonoBehaviour
 
     // 튜토리얼 안내(TutorialGuide)가 읽는 상태
     public Transaction Current => current;
-    public bool Busy => directive.panel.activeSelf || result.panel.activeSelf || (cutscene != null && cutscene.IsPlaying);
+    public bool Busy => directive.panel.activeSelf || result.panel.activeSelf || (notice != null && notice.panel.activeSelf) || (cutscene != null && cutscene.IsPlaying);
 
     void Start()
     {
@@ -160,7 +162,6 @@ public class DeskFlow : MonoBehaviour
                 Name = entry.Name,
                 Similar = entry.Similar,
                 Number = number,
-                SwappedNumber = Variation.SwapDigits(number, rng),
                 Memory = t.Type == "Restore" && memorySets.TryGetValue(t.MemorySetId, out var set) ? set : null,
                 CardOrder = ShuffledCards(),
             });
@@ -271,7 +272,7 @@ public class DeskFlow : MonoBehaviour
     // 기획서 4-2: 서류에 없는 번호면 다른 사람의 기록이 나온다(알려 주지 않음). 서류 번호인데 미등록이면 발견 목록에 자동 추가
     string Lookup(string number)
     {
-        bool onPaper = number == current.AppNumber || number == current.ConNumber;
+        bool onPaper = number == current.Number;
         // 기억 번호는 M-0100~M-9999 (입력칸은 숫자 4자리만 받음). 튜토리얼 서류는 안내 순서가 있어 다시 입력만 시킨다
         if (!onPaper && (current.Template.Tutorial || string.CompareOrdinal(number, "M-0100") < 0)) return "번호를 다시 확인하세요.";
 
@@ -326,13 +327,12 @@ public class DeskFlow : MonoBehaviour
     // 기획서 4-2·4-3: 조회 대상 거래는 조회해야, 복원 거래는 배열에 성공하거나 3회 실패해야 도장을 찍을 수 있다
     bool WorkPending()
     {
-        if (current.Template.Lookup && !current.LookedUp)
-        {
-            Say("기억 조회를 먼저 하세요. (단말기에 서류의 기억 번호 입력)");
-            return true;
-        }
-        if (!current.IsRestore || current.Record.RestoreDone) return false;
-        Say("기억 복원을 먼저 끝내세요. (단말기에서 조회한 뒤 서류 화면의 [기억 복원])");
+        string missing =
+            current.Template.Lookup && !current.LookedUp ? "기억 조회가 필요합니다." :
+            current.IsRestore && !current.Record.RestoreDone ? "기억 복원이 필요합니다." :
+            null;
+        if (missing == null) return false;
+        (notice != null ? notice : directive).Show($"<b>{missing}</b>", "확인", null); // 열려 있는 동안 Busy라 클릭 막힘
         return true;
     }
 

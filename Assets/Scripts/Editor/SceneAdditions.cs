@@ -34,6 +34,8 @@ public static partial class DeskSceneBuilder
         // M5: 업무 지시문 화면·결과 화면
         if (flow.directive == null) flow.directive = BuildMessagePanel(canvas.transform, "DirectivePanel");
         if (flow.result == null) flow.result = BuildMessagePanel(canvas.transform, "ResultPanel");
+        // 도장 전 할 일이 남았을 때의 작은 안내 팝업 ("기억 조회가 필요합니다.")
+        if (flow.notice == null) flow.notice = BuildMessagePanel(canvas.transform, "NoticePanel", new Vector2(600f, 260f));
 
         // M5: 책상 위 업무 지시문 종이 (클릭하면 다시 보기). 위치는 씬에서 조정
         if (GameObject.Find("DirectiveSheet") == null)
@@ -560,8 +562,11 @@ public static partial class DeskSceneBuilder
     }
 
     // 종이 한 장 + 버튼 하나 (업무 지시문, 결과 화면)
-    static MessagePanel BuildMessagePanel(Transform root, string name)
+    static MessagePanel BuildMessagePanel(Transform root, string name) => BuildMessagePanel(root, name, new Vector2(900f, 940f));
+
+    static MessagePanel BuildMessagePanel(Transform root, string name, Vector2 size)
     {
+        bool small = size.y < 500f; // 짧은 안내 팝업: 글 가운데, 여백·버튼 작게
         var dim = new GameObject(name, typeof(RectTransform), typeof(Image));
         dim.transform.SetParent(root, false);
         dim.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.6f);
@@ -571,15 +576,16 @@ public static partial class DeskSceneBuilder
         paper.transform.SetParent(dim.transform, false);
         paper.GetComponent<Image>().color = new Color(0.94f, 0.92f, 0.86f);
         var prt = (RectTransform)paper.transform;
-        Place(prt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900f, 940f));
+        Place(prt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size);
 
-        var body = MakeText(prt, "Body", "", 28, new Color(0.15f, 0.15f, 0.15f), TextAnchor.UpperLeft);
+        var body = MakeText(prt, "Body", "", 28, new Color(0.15f, 0.15f, 0.15f), small ? TextAnchor.MiddleCenter : TextAnchor.UpperLeft);
         body.supportRichText = true;
         body.lineSpacing = 1.15f;
-        Place(body.rectTransform, Vector2.zero, Vector2.one, new Vector2(0f, 40f), new Vector2(-120f, -200f));
+        if (small) Place(body.rectTransform, Vector2.zero, Vector2.one, new Vector2(0f, 45f), new Vector2(-60f, -110f));
+        else Place(body.rectTransform, Vector2.zero, Vector2.one, new Vector2(0f, 40f), new Vector2(-120f, -200f));
 
-        var button = MakeButton(prt, "Button", "", 32);
-        Place((RectTransform)button.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 40f), new Vector2(300f, 70f));
+        var button = MakeButton(prt, "Button", "", small ? 26 : 32);
+        Place((RectTransform)button.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, small ? 25f : 40f), small ? new Vector2(180f, 55f) : new Vector2(300f, 70f));
 
         var panel = dim.AddComponent<MessagePanel>();
         panel.panel = dim;

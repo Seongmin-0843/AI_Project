@@ -18,12 +18,13 @@ public static partial class DeskSceneBuilder
     static void ApplyArt(DeskFlow flow)
     {
         // 압축하지 않고, 도장 자국은 밉맵을 켜도록(CutsceneImageImport) 예전 설정으로 들어온 그림을 다시 가져온다
-        foreach (var name in new[] { "서류", "기억단말기", "승인도장자국", "반려도장자국", "업무결과_성공", "업무결과_실패", "Ottilia_text", "발견목록" })
+        foreach (var name in new[] { "서류", "기억단말기", "승인도장자국", "반려도장자국", "업무결과_성공", "업무결과_실패", "Ottilia_text", "발견목록", "기억복원" })
             if (AssetImporter.GetAtPath($"{ArtPath}{name}.png") is TextureImporter t && t.textureCompression != TextureImporterCompression.Uncompressed)
                 AssetDatabase.ImportAsset(t.assetPath, ImportAssetOptions.ForceUpdate);
         DocumentArt(flow.view);
         FindingArt(flow.view.findings);
         TerminalArt(flow.terminal);
+        RestoreArt(flow.restore);
         ResultPanelArt(flow);
         ResultStampArt(flow.resultArt);
     }
@@ -196,6 +197,118 @@ public static partial class DeskSceneBuilder
         Invisible(box.Find("CloseButton"), 73f, 967f, 213f, 1029f);
         EditorUtility.SetDirty(input);
         Debug.Log("[변경] 단말기 화면: 기억단말기 그림 적용");
+    }
+
+    // ── 기억 복원 (Example/기억복원_example.png) ──────────────────────────────
+
+    static void RestoreArt(RestorePanel restore)
+    {
+        var box = restore.panel.transform.Find("Box") as RectTransform;
+        var tex = Art("기억복원");
+        if (box == null || tex == null) return;
+        if (box.GetComponent<RawImage>() != null)
+        {
+            if (box.localScale == Vector3.one) ShrinkRestore(restore, box); // 예전에 전체 화면으로 적용한 씬
+            return;
+        }
+
+        Swap(box.gameObject, tex);
+        FullScreen(box);
+        // 그림은 1672x941 → 화면 1920x1080 좌표로 늘림
+        void At(RectTransform rt, float x0, float y0, float x1, float y1)
+        {
+            const float sx = 1920f / 1672f, sy = 1080f / 941f;
+            Px(rt, x0 * sx, y0 * sy, x1 * sx, y1 * sy);
+        }
+        Text Label(Text t, int size, Color color, TextAnchor anchor, float x0, float y0, float x1, float y1)
+        {
+            t.fontSize = size;
+            t.color = color;
+            t.alignment = anchor;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
+            At(t.rectTransform, x0, y0, x1, y1);
+            EditorUtility.SetDirty(t);
+            return t;
+        }
+
+        var ink = new Color(0.14f, 0.13f, 0.13f);
+        var plum = new Color(0.33f, 0.24f, 0.31f);
+        var title = box.Find("Title").GetComponent<Text>();
+        Label(title, 46, new Color(0.96f, 0.94f, 0.92f), TextAnchor.MiddleCenter, 470f, 155f, 1200f, 232f).fontStyle = FontStyle.Normal;
+        Label(MakeText(box, "Logo", "N U M B", 19, plum, TextAnchor.MiddleCenter), 19, plum, TextAnchor.MiddleCenter, 735f, 92f, 940f, 116f);
+
+        Label(restore.message, 40, ink, TextAnchor.MiddleRight, 150f, 265f, 985f, 315f);
+        restore.tries = Label(MakeText(box, "Tries", "", 32, ink, TextAnchor.MiddleLeft), 32, new Color(0.45f, 0.42f, 0.4f), TextAnchor.MiddleLeft, 1045f, 265f, 1500f, 315f);
+        restore.result = Label(restore.result, 36, ink, TextAnchor.MiddleCenter, 92f, 700f, 1582f, 765f);
+
+        // 카드: 종이는 그림에 있음. 고른 카드만 옅은 자주색을 덮고 번호를 붙인다
+        float[] lefts = { 92f, 600f, 1108f };
+        for (int i = 0; i < restore.cards.Length; i++)
+        {
+            var card = restore.cards[i];
+            At((RectTransform)card.transform, lefts[i], 403f, lefts[i] + 473f, 692f);
+            card.GetComponent<Image>().sprite = null;
+            var text = card.GetComponentInChildren<Text>(true);
+            text.fontSize = 40;
+            text.color = ink;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.lineSpacing = 1.15f;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            Place(text.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-60f, -24f));
+            EditorUtility.SetDirty(text);
+            EditorUtility.SetDirty(card);
+        }
+        restore.normalColor = Color.clear;
+        restore.pickedColor = new Color(0.4f, 0.25f, 0.38f, 0.16f);
+        restore.numberColor = plum;
+
+        Invisible(restore.confirmButton.transform, 0f, 0f, 0f, 0f);
+        At((RectTransform)restore.confirmButton.transform, 510f, 804f, 812f, 877f);
+        var colors = restore.confirmButton.colors;
+        colors.disabledColor = new Color(0.93f, 0.91f, 0.89f, 0.55f); // 복원 뒤: 종이색을 덮어 흐리게
+        restore.confirmButton.colors = colors;
+        Invisible(box.Find("CloseButton"), 0f, 0f, 0f, 0f);
+        At((RectTransform)box.Find("CloseButton"), 861f, 804f, 1163f, 877f);
+        // 글자는 그림에 없으므로 다시 켠다 ([닫기]는 복원 뒤 [서류로 돌아가기]로 바뀜)
+        foreach (var (button, color) in new[] { (restore.confirmButton.transform, new Color(0.95f, 0.92f, 0.9f)), (box.Find("CloseButton"), ink) })
+        {
+            var caption = button.GetComponentInChildren<Text>(true);
+            caption.enabled = true;
+            caption.color = color;
+            caption.fontSize = 42;
+            caption.resizeTextForBestFit = true;
+            caption.resizeTextMinSize = 24;
+            caption.resizeTextMaxSize = 42;
+            EditorUtility.SetDirty(caption);
+        }
+        EditorUtility.SetDirty(restore);
+        ShrinkRestore(restore, box);
+        Debug.Log("[변경] 기억 복원 창: 기억복원 그림 적용");
+    }
+
+    // 창은 화면의 60% 크기로 가운데에, 바깥의 게임 화면은 살짝 어둡게. 크기는 Box의 Scale로 조절
+    static void ShrinkRestore(RestorePanel restore, RectTransform box)
+    {
+        box.localScale = new Vector3(0.6f, 0.6f, 1f);
+        var dim = restore.panel.GetComponent<Image>();
+        dim.color = new Color(0f, 0f, 0f, 0.55f);
+        // 창이 작아진 만큼 글씨는 키운다 (실제 크기 = 값 × 0.6)
+        void Size(Text t, int size)
+        {
+            t.fontSize = size;
+            if (t.resizeTextForBestFit) t.resizeTextMaxSize = size;
+            EditorUtility.SetDirty(t);
+        }
+        Size(restore.message, 40);
+        if (restore.tries != null) Size(restore.tries, 32);
+        Size(restore.result, 36);
+        foreach (var card in restore.cards) Size(card.GetComponentInChildren<Text>(true), 40);
+        Size(restore.confirmButton.GetComponentInChildren<Text>(true), 42);
+        Size(restore.closeLabel, 42);
+        EditorUtility.SetDirty(box);
+        EditorUtility.SetDirty(dim);
+        Debug.Log("[변경] 기억 복원 창: 60% 크기, 바깥 어둡게");
     }
 
     // 그림에 그려진 버튼 위에 놓는 투명 버튼 (마우스를 올리면 살짝 어두워짐)

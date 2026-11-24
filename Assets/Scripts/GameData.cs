@@ -45,42 +45,24 @@ public class StageInfo
     public string Title;
 }
 
-// 기획서 7장 값 치환: 이름·기억 번호 뽑기와 번호 자리바꿈
+// 기획서 7장 값 치환: 이름·기억 번호 뽑기
 public static class Variation
 {
-    // M-0100 ~ M-9999. 자리바꿈이 가능하도록 이웃한 두 자리가 다른 번호만 뽑는다.
+    // M-0100 ~ M-9999, 한 스테이지 안에서 겹치지 않게
     public static string RandomNumber(System.Random rng, HashSet<string> used)
     {
         while (true)
         {
             var n = "M-" + rng.Next(100, 10000).ToString("D4");
-            if (!used.Contains(n) && SwapCandidates(n).Count > 0) { used.Add(n); return n; }
+            if (used.Add(n)) return n;
         }
-    }
-
-    // 서로 다른 이웃한 두 자리 중 하나를 골라 바꾼다 (예: M-0712 → M-0721)
-    public static string SwapDigits(string number, System.Random rng)
-    {
-        var candidates = SwapCandidates(number);
-        int i = candidates[rng.Next(candidates.Count)];
-        var c = number.ToCharArray();
-        (c[i], c[i + 1]) = (c[i + 1], c[i]);
-        return new string(c);
-    }
-
-    static List<int> SwapCandidates(string number)
-    {
-        var list = new List<int>();
-        for (int i = 2; i < number.Length - 1; i++) // "M-" 다음부터
-            if (number[i] != number[i + 1]) list.Add(i);
-        return list;
     }
 }
 
 // Resources/Data의 CSV를 읽는다. 데이터 모순은 불러올 때 에러 로그로 알린다.
 public static class GameData
 {
-    static readonly string[] KnownKinds = { "NameMismatch", "NumberMismatch", "SignMissing", "DescMismatch", "OwnerMismatch", "KindMismatch", "AgeMismatch", "Unregistered", "RestoreMismatch", "ConsentMissing", "UnderTen" };
+    static readonly string[] KnownKinds = { "NameMismatch", "SignMissing", "DescMismatch", "OwnerMismatch", "KindMismatch", "AgeMismatch", "Unregistered", "RestoreMismatch", "ConsentMissing", "UnderTen" };
     static readonly string[] LookupKinds = { "OwnerMismatch", "KindMismatch", "AgeMismatch", "Unregistered", "UnderTen" };
 
     public static List<TransactionTemplate> LoadTemplates()
